@@ -10,7 +10,7 @@ import (
 )
 
 func ensureStructFieldExported(f reflect.StructField) reflect.StructField {
-	if f.IsExported() {
+	if f.PkgPath == "" {
 		return f
 	}
 	name := f.Name
