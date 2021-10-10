@@ -24,7 +24,7 @@ digpro 是一个增强版的 [uber-go/dig][dig-github]，继承了 [uber-go/dig]
 go get github.com/rectcircle/digpro
 ```
 
-## Guide
+## 指南
 
 ### [dig][dig-github] 简介
 
@@ -39,7 +39,7 @@ go get github.com/rectcircle/digpro
 
 ### 为什么需要 digpro 项目
 
-[dig][[dig-github] 提供了非常轻量级的运行依赖注入，代码优质且稳定。但是其缺少如下比较有用的能力：
+[dig][dig-github] 提供了非常轻量级的运行依赖注入，代码优质且稳定。但是其缺少如下比较有用的能力：
 
 * 属性依赖注入，只需提供一个结构体类型，依赖注入库就可以构造一个结构体对象并将依赖注入到该对象中，并放入容器中。该能力可以给依赖注入使用者节省大量的时间，避免编写大量的样板式的构造函数。
 * 值 Provider，可以将用户提供的构造好的对象直接放到容器中。

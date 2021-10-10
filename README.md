@@ -1,4 +1,4 @@
-# :hammer_and_pick: dig pro
+# :hammer_and_pick: digpro
 
 [![MIT][license-img]][license] [![GoDoc][doc-img]][doc] [![GitHub release][release-img]][release] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Go Report Card][report-card-img]][report-card]
 
@@ -43,7 +43,7 @@ More see: [go docs][dig-go-docs]
 
 ### Why need digpro
 
-[dig][[dig-github] provides a very lightweight runtime dependency injection, and the code is high-quality and stable. But it lacks the following more useful features:
+[dig][dig-github] provides a very lightweight runtime dependency injection, and the code is high-quality and stable. But it lacks the following more useful features:
 
 * Property dependency injection, by simply providing a structure type, the dependency injection library can construct a structure object and inject the dependency into that object and into the container. This feature can save dependency injection users a lot of time and avoid writing a lot of sample constructors.
 * Value Provider, which can take a constructed object provided by the user and put it directly into a container.
