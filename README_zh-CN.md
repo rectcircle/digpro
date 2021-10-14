@@ -12,6 +12,7 @@ digpro 是一个增强版的 [uber-go/dig][dig-github]，继承了 [uber-go/dig]
 * 值 Provider
 * 属性依赖注入
 * 从容器里提取对象
+* Override 已注册的 Provider
 * 添加全局容器
 * 导出一些函数
   * `QuickPanic` 函数
@@ -202,19 +203,37 @@ c.Provide(func(in struct {
 将容器内构造出的对象提取出来，以便使用。
 
 ```go
-func Extract(c *dig.Container, typInterface interface{}, opts ...ExtractOption) (interface{}, error)
-func (c *ContainerWrapper) Extract(typInterface interface{}, opts ...ExtractOption) (interface{}, error)
+func MakeExtractFunc(ptr interface{}, opts ...ExtractOption) interface{}
+func Extract(c *dig.Container, typ interface{}, opts ...ExtractOption) (interface{}, error)
+func (c *ContainerWrapper) Extract(typ interface{}, opts ...ExtractOption) (interface{}, error)
 ```
 
-* structOrStructPtr 必须为 struct 类型，或者 struct 指针类型
+对于两个 `Extract` 函数，如果想提取一个非接口类型，typ 和返回值的类型关系为 `reflect.TypeOf(result) == reflect.TypeOf(typ)`，即
+
+```go
+func(int) -> int    // func(int(0)) -> int
+func(*int) -> *int  // func(new(int)) -> *int
+```
+
+对于两个 `Extract` 函数，如果想提取一个接口类型，typ 和返回值的类型关系为 `reflect.TypeOf(result) == reflect.TypeOf(typ).Elem()`，即
+
+```go
+type A interface { ... }
+func(A) -> error   // func(A(nil)) -> error
+func(*A) -> A      // func(new(A)) -> A
+func(**A) -> *A    // func(new(*A)) -> *A
+```
 
 Example
 
 ```go
 // High Level API
-i, err := c.Extract(int(0))
-// Lower Level API
+i, err := c.Extract(int(0)) 
+// Lower Level API (1)
 i, err := digpro.Extract(c, int(0))
+// Lower Level API (2)
+var i int
+err := digpro.Invoke(digpro.MakeExtractFunc(&i))
 ```
 
 等价于
@@ -225,6 +244,28 @@ err := c.Invoke(func(_i int){
   i = _i
 })
 ```
+
+## Override
+
+> :warning: 仅支持高级 API
+
+在使用依赖注入时，会按照生产环境的配置来注册 Provider，并在 main 函数中启动服务。当要在其他环境启动服务时，（比如测试），一般只需要，将少量的某几个生产环境的 Provider 替换为专有的 Provider（比如 db mock）。
+
+为了更优雅支持如上场景，添加 Override 能力。
+
+Example
+
+```go
+c := digpro.New()
+_ = c.Supply(1) // please handle error in production
+_ = c.Supply(1, digpro.Override())
+// _ = c.Supply("a", digpro.Override())  // has error
+i, _ := c.Extract(0)
+fmt.Println(i.(int) == 1)
+// Output: true
+```
+
+为了提前暴露问题，如果容器里不存在相同 Provider，使用  `digpro.Override()` 将返回错误 `no provider to override was found`
 
 ### 其他
 
@@ -265,7 +306,6 @@ func (c *ContainerWrapper) Unwrap() *dig.Container
 
 ## TODO
 
-* [ ] `digpro.ForceOverride` 覆盖 Provider （支持测试）
 * [ ] 循环引用问题（修改高级API中 `Struct` 、 `Invoke` 和 `Extract` 实现为 `() => new(struct)`，并在提取的时候进行拼装（不考虑非指针的情况）
 
 [dig-github]: https://github.com/uber-go/dig

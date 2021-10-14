@@ -5,17 +5,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rectcircle/digpro/internal/tests"
 	"go.uber.org/dig"
 )
 
-// TODO test error 错误输出问题
-
-var i = 1
-
 type testExtractArgs struct {
-	prepare      *_providerSet
-	typInterface interface{}
-	opts         []ExtractOption
+	prepare tests.Provider
+	typ     interface{}
+	opts    []ExtractOption
 }
 
 var testExtractData = []struct {
@@ -26,73 +23,32 @@ var testExtractData = []struct {
 	wantErrContain string
 }{
 	{
-		name: "int(1)",
+		name: "error missing dependencies",
 		args: testExtractArgs{
-			prepare: providerSet(
-				provide(Supply(1)),
-			),
-			typInterface: 0,
-			opts:         []ExtractOption{},
-		},
-		want:    1,
-		wantErr: false,
-	},
-	{
-		name: "*int(1)",
-		args: testExtractArgs{
-			prepare: providerSet(
-				provide(Supply(&i)),
-			),
-			typInterface: &i,
-			opts:         []ExtractOption{},
-		},
-		want:    &i,
-		wantErr: false,
-	},
-	{
-		name: "name",
-		args: testExtractArgs{
-			prepare: providerSet(
-				provide(Supply(i), dig.Name("i")),
-			),
-			typInterface: i,
-			opts:         []ExtractOption{ExtractByName("i")},
-		},
-		want:    i,
-		wantErr: false,
-	},
-	{
-		name: "group",
-		args: testExtractArgs{
-			prepare: providerSet(
-				provide(Supply(1), dig.Group("i")),
-				provide(Supply(1), dig.Group("i")),
-			),
-			typInterface: []int{},
-			opts:         []ExtractOption{ExtractByGroup("i")},
-		},
-		want:    []int{1, 1},
-		wantErr: false,
-	},
-	{
-		name: "error missing dependencies 1",
-		args: testExtractArgs{
-			prepare:      providerSet(),
-			typInterface: 1,
-			opts:         []ExtractOption{},
+			prepare: tests.ProviderSet(),
+			typ:     1,
+			opts:    []ExtractOption{},
 		},
 		wantErr:        true,
-		wantErrContain: getSelfSourceCodeFilePath(),
+		wantErrContain: tests.GetSelfSourceCodeFilePath(),
 	},
 	{
-		name: "error missing dependencies 2",
+		name: "success name",
 		args: testExtractArgs{
-			prepare:      providerSet(provide(Struct(Biz{}))),
-			typInterface: Biz{},
-			opts:         []ExtractOption{},
+			prepare: tests.ProviderOne(Supply(1), dig.Name("a")),
+			typ:     1,
+			opts:    []ExtractOption{ExtractByName("a")},
 		},
-		wantErr:        true,
-		wantErrContain: getSelfSourceCodeFilePath(),
+		want: 1,
+	},
+	{
+		name: "success group",
+		args: testExtractArgs{
+			prepare: tests.ProviderOne(Supply(1), dig.Group("g")),
+			typ:     []int{},
+			opts:    []ExtractOption{ExtractByGroup("g")},
+		},
+		want: []int{1},
 	},
 }
 
@@ -100,12 +56,12 @@ func TestExtract(t *testing.T) {
 	for _, tt := range testExtractData {
 		t.Run(tt.name, func(t *testing.T) {
 			c := dig.New()
-			err := tt.args.prepare.apply(c.Provide)
+			err := tt.args.prepare.Apply(c.Provide)
 			if err != nil {
 				t.Errorf("prepare error = %v", err)
 				return
 			}
-			got, err := Extract(c, tt.args.typInterface, tt.args.opts...)
+			got, err := Extract(c, tt.args.typ, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Extract() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -128,18 +84,17 @@ func TestContainerWrapper_Extract(t *testing.T) {
 	for _, tt := range testExtractData {
 		t.Run(tt.name, func(t *testing.T) {
 			c := New()
-			err := tt.args.prepare.apply(c.Provide)
+			err := tt.args.prepare.Apply(c.Provide)
 			if err != nil {
 				t.Errorf("prepare error = %v", err)
 				return
 			}
-			got, err := c.Extract(tt.args.typInterface, tt.args.opts...)
+			got, err := c.Extract(tt.args.typ, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ContainerWrapper.Extract() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err != nil {
-				// fmt.Println(err)
 				if !strings.Contains(err.Error(), tt.wantErrContain) {
 					t.Errorf("ContainerWrapper.Extract() error = %v, want contain = %s", err, tt.wantErrContain)
 				}
@@ -151,4 +106,60 @@ func TestContainerWrapper_Extract(t *testing.T) {
 		})
 	}
 
+}
+
+func TestMakeExtractFunc(t *testing.T) {
+	a := 1
+	type extractArgs struct {
+		provider tests.Provider
+		ptr      interface{}
+		opts     []ExtractOption
+	}
+	var extractTests = []struct {
+		name           string
+		args           extractArgs
+		want           interface{}
+		wantErr        bool
+		wantErrContain string
+	}{
+		{
+			name: "success type",
+			args: extractArgs{
+				provider: tests.ProviderOne(func() int { return 1 }),
+				ptr:      new(int),
+			},
+			want:    &a,
+			wantErr: false,
+		},
+	}
+	for _, tt := range extractTests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := dig.New()
+			if tt.args.provider != nil {
+				err := tt.args.provider.Apply(c.Provide)
+				if err != nil {
+					t.Errorf("provider.Apply err = %s", err)
+					return
+				}
+			}
+			extractFunc := MakeExtractFunc(tt.args.ptr, tt.args.opts...)
+			err := c.Invoke(extractFunc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("c.Invoke(extractFunc) error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				if tt.wantErrContain != "" {
+					if !strings.Contains(err.Error(), tt.wantErrContain) {
+						t.Errorf("c.Invoke(extractFunc) error want contain %s, got %s", tt.wantErrContain, err.Error())
+						return
+					}
+				}
+				return
+			}
+			if !reflect.DeepEqual(tt.args.ptr, tt.want) {
+				t.Errorf("ptr = %#v, want %#v", tt.args.ptr, tt.want)
+			}
+		})
+	}
 }

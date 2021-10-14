@@ -1,15 +1,9 @@
 package digpro
 
 import (
-	"errors"
-	"fmt"
 	"reflect"
-	"runtime"
-	"strings"
 	"testing"
 	"unsafe"
-
-	"go.uber.org/dig"
 )
 
 type EmptyInner struct {
@@ -97,76 +91,4 @@ func assertStructOrStructPtr(t *testing.T, structOrStructPtr interface{}) (pass 
 		}
 	}
 	return pass
-}
-
-type _provider struct {
-	constructor interface{}
-	opts        []dig.ProvideOption
-}
-
-func provide(constructor interface{}, opts ...dig.ProvideOption) *_provider {
-	return &_provider{
-		constructor: constructor,
-		opts:        opts,
-	}
-}
-
-type ProviderApplyFunc func(constructor interface{}, opts ...dig.ProvideOption) error
-
-func (p *_provider) apply(f ProviderApplyFunc) error {
-	return f(p.constructor, p.opts...)
-}
-
-type _providerSet struct {
-	_providers []*_provider
-}
-
-func providerSet(_providers ...*_provider) *_providerSet {
-	return &_providerSet{
-		_providers: _providers,
-	}
-}
-
-func (ps *_providerSet) apply(f ProviderApplyFunc) error {
-	if ps == nil {
-		return nil
-	}
-	errs := []string{}
-	for i, p := range ps._providers {
-		err := p.apply(f)
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("[%d] %s", i, err))
-		}
-	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return errors.New(strings.Join(errs, "\n"))
-}
-
-// func assertDigProvider(t *testing.T, prepare *_providerSet, provider *_provider, wantErr bool, want interface{}) {
-// 	c := dig.New()
-// 	err := prepare.apply(c.Provide)
-// 	if err != nil {
-// 		t.Errorf("prepare error: %s", err)
-// 		return
-// 	}
-// 	err = provider.apply(c.Provide)
-// 	if (err != nil) != wantErr {
-// 		t.Errorf("provider.apply() error = %v, wantErr %v", err, wantErr)
-// 		return
-// 	}
-// 	if err != nil {
-// 		return
-// 	}
-// }
-
-func getSelfSourceCodeFilePath() string {
-	_, fpath, _, ok := runtime.Caller(1)
-	if !ok {
-		err := errors.New("failed to get filename")
-		panic(err)
-	}
-	// return path.Base(fpath)
-	return fpath
 }

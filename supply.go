@@ -57,5 +57,5 @@ func Supply(value interface{}) interface{} {
 //   fmt.Println(foo)
 //   // Output: a
 func (c *ContainerWrapper) Supply(value interface{}, opts ...dig.ProvideOption) error {
-	return internal.ProvideWithLocationForPC(c.Unwrap(), 2, Supply(value), opts...)
+	return internal.ProvideWithLocationForPC(c.Provide, 3, Supply(value), opts...)
 }

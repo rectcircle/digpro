@@ -1,11 +1,19 @@
 package digpro
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/rectcircle/digpro/internal"
 	"go.uber.org/dig"
 )
+
+func wrapError(prefix string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("[%s] %s", prefix, err.Error())
+}
 
 // Struct make a struct constructor.
 //
@@ -65,7 +73,7 @@ import (
 func Struct(structOrStructPtr interface{}) interface{} {
 	parameterObjectType, fieldMapping, err := makeParameterObjectType(structOrStructPtr)
 	if err != nil {
-		return wrapError(err)
+		return wrapError("Struct", err)
 	}
 
 	parameterTypes := []reflect.Type{parameterObjectType}
@@ -76,7 +84,7 @@ func Struct(structOrStructPtr interface{}) interface{} {
 	fv := reflect.MakeFunc(ft, func(p []reflect.Value) []reflect.Value {
 		// copy from parameter to injectedObject and return
 		injectedObject, err := copyFromParameterObject(structOrStructPtr, p[0], fieldMapping)
-		errValue := reflect.ValueOf(wrapError(err))
+		errValue := reflect.ValueOf(wrapError("Struct", err))
 		var injectedObjectValue reflect.Value
 		if err == nil {
 			// handle result to value
@@ -147,5 +155,5 @@ func Struct(structOrStructPtr interface{}) interface{} {
 //   fmt.Printf("%#v", foo)
 //   // Output: digpro_test.Foo{A:"a", B:1, C:2, private:true, ignore:3}
 func (c *ContainerWrapper) Struct(structOrStructPtr interface{}, opts ...dig.ProvideOption) error {
-	return internal.ProvideWithLocationForPC(c.Unwrap(), 2, Struct(structOrStructPtr), opts...)
+	return internal.ProvideWithLocationForPC(c.Provide, 3, Struct(structOrStructPtr), opts...)
 }

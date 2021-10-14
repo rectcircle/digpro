@@ -4,11 +4,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/rectcircle/digpro/internal/tests"
 	"go.uber.org/dig"
 )
 
 type testSupplyArgs struct {
-	prepare *_providerSet
+	prepare tests.Provider
 	value   interface{}
 }
 
@@ -20,8 +21,8 @@ var testSupplyData = []struct {
 	{
 		name: "error duplicate",
 		args: testSupplyArgs{
-			prepare: providerSet(
-				provide(Supply(1)),
+			prepare: tests.ProviderSet(
+				tests.ProviderOne(Supply(1)),
 			),
 			value: 1,
 		},
@@ -47,14 +48,16 @@ func TestSupply(t *testing.T) {
 	for _, tt := range testSupplyData {
 		t.Run(tt.name, func(t *testing.T) {
 			c := dig.New()
-			err := tt.args.prepare.apply(c.Provide)
-			if err != nil {
-				t.Errorf("prepare error: %s", err)
-				return
+			if tt.args.prepare != nil {
+				err := tt.args.prepare.Apply(c.Provide)
+				if err != nil {
+					t.Errorf("prepare error: %s", err)
+					return
+				}
 			}
-			err = c.Provide(Supply(tt.args.value))
+			err := c.Provide(Supply(tt.args.value))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("provider.apply() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("provider.Apply() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err != nil {
@@ -68,14 +71,16 @@ func TestContainerWrapper_Supply(t *testing.T) {
 	for _, tt := range testSupplyData {
 		t.Run(tt.name, func(t *testing.T) {
 			c := New()
-			err := tt.args.prepare.apply(c.Provide)
-			if err != nil {
-				t.Errorf("prepare error: %s", err)
-				return
+			if tt.args.prepare != nil {
+				err := tt.args.prepare.Apply(c.Provide)
+				if err != nil {
+					t.Errorf("prepare error: %s", err)
+					return
+				}
 			}
-			err = c.Supply(tt.args.value)
+			err := c.Supply(tt.args.value)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("provider.apply() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("provider.Apply() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err != nil {
