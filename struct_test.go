@@ -5,13 +5,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rectcircle/digpro/internal/tests"
 	"go.uber.org/dig"
 )
 
 var fooNilPtr *Foo
 
 type testStructArgs struct {
-	prepare           *_providerSet
+	prepare           tests.Provider
 	structOrStructPtr interface{}
 	opts              []dig.ProvideOption
 }
@@ -82,10 +83,10 @@ var testStructData = []struct {
 	{
 		name: "success struct ptr",
 		args: testStructArgs{
-			prepare: providerSet(
-				provide(Supply("a")),
-				provide(Supply(1)),
-				provide(Supply(true)),
+			prepare: tests.ProviderSet(
+				tests.ProviderOne(Supply("a")),
+				tests.ProviderOne(Supply(1)),
+				tests.ProviderOne(Supply(true)),
 			),
 			structOrStructPtr: new(Bar),
 		},
@@ -99,10 +100,10 @@ var testStructData = []struct {
 	{
 		name: "success struct",
 		args: testStructArgs{
-			prepare: providerSet(
-				provide(Supply("a")),
-				provide(Supply(1)),
-				provide(Supply(true)),
+			prepare: tests.ProviderSet(
+				tests.ProviderOne(Supply("a")),
+				tests.ProviderOne(Supply(1)),
+				tests.ProviderOne(Supply(true)),
 			),
 			structOrStructPtr: Bar{},
 		},
@@ -116,10 +117,10 @@ var testStructData = []struct {
 	{
 		name: "tag",
 		args: testStructArgs{
-			prepare: providerSet(
-				provide(Supply(1), dig.Name("a")),
-				provide(Supply("c"), dig.Group("c")),
-				provide(Supply("c"), dig.Group("c")),
+			prepare: tests.ProviderSet(
+				tests.ProviderOne(Supply(1), dig.Name("a")),
+				tests.ProviderOne(Supply("c"), dig.Group("c")),
+				tests.ProviderOne(Supply("c"), dig.Group("c")),
 			),
 			structOrStructPtr: Biz{
 				A: 0,
@@ -159,13 +160,14 @@ func TestStruct(t *testing.T) {
 					private: in.Private,
 				}
 			})
-
-			err := tt.args.prepare.apply(c.Provide)
-			if err != nil {
-				t.Errorf("prepare error = %v", err)
-				return
+			if tt.args.prepare != nil {
+				err := tt.args.prepare.Apply(c.Provide)
+				if err != nil {
+					t.Errorf("prepare error = %v", err)
+					return
+				}
 			}
-			err = c.Provide(Struct(tt.args.structOrStructPtr), tt.args.opts...)
+			err := c.Provide(Struct(tt.args.structOrStructPtr), tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("c.Provide(Struct(structOrStructPtr), opts...) error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -200,12 +202,14 @@ func TestContainerWrapper_Struct(t *testing.T) {
 	for _, tt := range testStructData {
 		t.Run(tt.name, func(t *testing.T) {
 			c := New()
-			err := tt.args.prepare.apply(c.Provide)
-			if err != nil {
-				t.Errorf("prepare error = %v", err)
-				return
+			if tt.args.prepare != nil {
+				err := tt.args.prepare.Apply(c.Provide)
+				if err != nil {
+					t.Errorf("prepare error = %v", err)
+					return
+				}
 			}
-			err = c.Struct(tt.args.structOrStructPtr, tt.args.opts...)
+			err := c.Struct(tt.args.structOrStructPtr, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ContainerWrapper.Struct error = %v, wantErr %v", err, tt.wantErr)
 				return

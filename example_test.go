@@ -60,6 +60,7 @@ func Example_highLevelAPI() {
 		c.Supply(1),
 		c.Supply(2, dig.Name("c")),
 		c.Supply(true),
+		c.Supply("aaa", digpro.Override()), // Override "a" by "aaa"
 		// register a struct
 		c.Struct(Foo{
 			ignore: 3,
@@ -71,5 +72,5 @@ func Example_highLevelAPI() {
 		digpro.QuickPanic(err)
 	}
 	fmt.Printf("%#v", foo)
-	// Output: digpro_test.Foo{A:"a", B:1, C:2, private:true, ignore:3}
+	// Output: digpro_test.Foo{A:"aaa", B:1, C:2, private:true, ignore:3}
 }

@@ -1,4 +1,4 @@
-# :hammer_and_pick: dig pro
+# :hammer_and_pick: digpro
 
 [![MIT][license-img]][license] [![GoDoc][doc-img]][doc] [![GitHub release][release-img]][release] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Go Report Card][report-card-img]][report-card]
 
@@ -12,6 +12,7 @@ digpro is a enhanced [uber-go/dig][dig-github], inherit all feature of [uber-go/
 * Value Provider
 * Property dependency injection
 * Extract object from the container
+* Override a registered Provider
 * Add global container
 * Export some function
   * `QuickPanic` function
@@ -43,7 +44,7 @@ More see: [go docs][dig-go-docs]
 
 ### Why need digpro
 
-[dig][[dig-github] provides a very lightweight runtime dependency injection, and the code is high-quality and stable. But it lacks the following more useful features:
+[dig][dig-github] provides a very lightweight runtime dependency injection, and the code is high-quality and stable. But it lacks the following more useful features:
 
 * Property dependency injection, by simply providing a structure type, the dependency injection library can construct a structure object and inject the dependency into that object and into the container. This feature can save dependency injection users a lot of time and avoid writing a lot of sample constructors.
 * Value Provider, which can take a constructed object provided by the user and put it directly into a container.
@@ -206,19 +207,37 @@ c.Provide(func(in struct {
 Extracts the object constructed inside the container for use.
 
 ```go
-func Extract(c *dig.Container, typInterface interface{}, opts ...ExtractOption) (interface{}, error)
-func (c *ContainerWrapper) Extract(typInterface interface{}, opts ...ExtractOption) (interface{}, error)
+func MakeExtractFunc(ptr interface{}, opts ...ExtractOption) interface{}
+func Extract(c *dig.Container, typ interface{}, opts ...ExtractOption) (interface{}, error)
+func (c *ContainerWrapper) Extract(typ interface{}, opts ...ExtractOption) (interface{}, error)
 ```
 
-* structOrStructPtr must be of struct type, or struct pointer type
+For two `Extract` functions, if want to extract a non-interface, `reflect.TypeOf(result) == reflect.TypeOf(typ)`
+
+```go
+func(int) -> int    // func(int(0)) -> int
+func(*int) -> *int  // func(new(int)) -> *int
+```
+
+For two `Extract` functions, if want to extract a interface, `reflect.TypeOf(result) == reflect.TypeOf(typ).Elem()`
+
+```go
+type A interface { ... }
+func(A) -> error   // func(A(nil)) -> error
+func(*A) -> A      // func(new(A)) -> A
+func(**A) -> *A    // func(new(*A)) -> *A
+```
 
 Example
 
 ```go
 // High Level API
-i, err := c.Extract(int(0))
-// Lower Level API
+i, err := c.Extract(int(0)) 
+// Lower Level API (1)
 i, err := digpro.Extract(c, int(0))
+// Lower Level API (2)
+var i int
+err := digpro.Invoke(digpro.MakeExtractFunc(&i))
 ```
 
 Equals to
@@ -229,6 +248,28 @@ err := c.Invoke(func(_i int){
   i = _i
 })
 ```
+
+## Override
+
+> :warning: Only support High Level API
+
+When using dependency injection, the Provider is registered according to the configuration of the production environment, and the service is started in the main function. When starting a service in another environment (e.g. testing), it is generally only necessary to replace a small number of the production environment's Providers with proprietary ones (e.g. db mock).
+
+To more elegantly support scenarios such as the above, add the Override capability.
+
+Example
+
+```go
+c := digpro.New()
+_ = c.Supply(1) // please handle error in production
+_ = c.Supply(1, digpro.Override())
+// _ = c.Supply("a", digpro.Override())  // has error
+i, _ := c.Extract(0)
+fmt.Println(i.(int) == 1)
+// Output: true
+```
+
+To expose the problem in advance, using `digpro.Override()` will return the error `no provider to override was found` if the same Provider does not exist in the container
 
 ### Others
 
@@ -269,7 +310,6 @@ From `*digpro.ContainerWrapper` obtain `*dig.Container`
 
 ## TODO
 
-* [ ] `digpro.ForceOverride` override Provider (for test)
 * [ ] Circular reference problem (change high level api `Struct` 、 `Invoke` and `Extract` Implementation as  `() => new(struct)`, and assembled at the time of extraction)(disregarding the non-pointer case)
 
 [dig-github]: https://github.com/uber-go/dig

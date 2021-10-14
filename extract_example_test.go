@@ -22,3 +22,12 @@ func ExampleContainerWrapper_Extract() {
 	fmt.Println(i.(int) == 1)
 	// Output: true
 }
+
+func ExampleMakeExtractFunc() {
+	c := dig.New()
+	_ = c.Provide(func() int { return 1 }) // please handle error in production
+	i := new(int)
+	_ = c.Invoke(digpro.MakeExtractFunc(i))
+	fmt.Println(*i == 1)
+	// Output: true
+}

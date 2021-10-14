@@ -1,0 +1,13 @@
+ignore:
+  - internal/digcopy  # Ignoring paths
+  - internal/tests  # Ignoring paths
+coverage:
+  status:
+    project:
+      default:
+        target: 90%         # the required coverage value
+        threshold: 1%       # the leniency in hitting the target
+        if_ci_failed: error # if ci fails report status as success, error, or failure
+    patch:
+      default:
+        target: 70%
