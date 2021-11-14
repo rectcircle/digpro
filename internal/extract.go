@@ -88,7 +88,12 @@ func ExtractWithLocationForPC(Invoke func(function interface{}, opts ...dig.Invo
 	if err, ok := f.(error); ok {
 		return nil, err
 	}
-	err := WrapErrorWithLocationForPC(callSkip, func(uintptr) error { return Invoke(f) })
+	var err error
+	if callSkip <= 0 {
+		err = Invoke(f)
+	} else {
+		err = WrapErrorWithLocationForPC(callSkip, func(uintptr) error { return Invoke(f) })
+	}
 	if err != nil {
 		return nil, err
 	}
