@@ -57,7 +57,7 @@ func Supply(value interface{}) interface{} {
 //   fmt.Println(foo)
 //   // Output: a
 func (c *ContainerWrapper) Supply(value interface{}, opts ...dig.ProvideOption) error {
-	filteredOpts, digproOptsResult := filterAndGetDigproProvideOptions(opts, locationFixOptionType)
+	filteredOpts, digproOptsResult := filterProvideOptionAndGetDigproOptions(opts, locationFixOptionType)
 	callSkip := digproOptsResult.locationFixCallSkip
 	if callSkip == 0 {
 		callSkip = 3

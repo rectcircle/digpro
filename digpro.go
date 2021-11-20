@@ -63,6 +63,14 @@ func (c *ContainerWrapper) Provide(constructor interface{}, opts ...dig.ProvideO
 }
 
 func (c *ContainerWrapper) Invoke(function interface{}, opts ...dig.InvokeOption) error {
+
+	_opts, digproOpts := filterInvokeOptionAndGetDigproOptions(opts, locationFixOptionType)
+	opts = _opts
+	callSkip := digproOpts.locationFixCallSkip
+	if callSkip == 0 {
+		callSkip = 2
+	}
+
 	// pruning
 	if !c.existResolveCyclicOption {
 		return c.Container.Invoke(function, opts...)
@@ -86,17 +94,19 @@ func (c *ContainerWrapper) Invoke(function interface{}, opts ...dig.InvokeOption
 	for i := 0; i < ftype.NumIn(); i++ {
 		inTypes = append(inTypes, ftype.In(i))
 	}
-	err := c.Container.Invoke(reflect.MakeFunc(reflect.FuncOf(inTypes, nil, false), func(args []reflect.Value) (results []reflect.Value) {
-		// for everyone arg call doPropertyInject
-		for _, arg := range args {
-			doPropertyInjectError = c.doPropertyInject(arg, nil)
-			if doPropertyInjectError != nil {
-				return
+	err := internal.WrapErrorWithLocationForPC(callSkip, func(pc uintptr) error {
+		return c.Container.Invoke(reflect.MakeFunc(reflect.FuncOf(inTypes, nil, false), func(args []reflect.Value) (results []reflect.Value) {
+			// for everyone arg call doPropertyInject
+			for _, arg := range args {
+				doPropertyInjectError = c.doPropertyInject(arg, nil)
+				if doPropertyInjectError != nil {
+					return
+				}
 			}
-		}
-		fargs = args
-		return
-	}).Interface())
+			fargs = args
+			return
+		}).Interface())
+	})
 	if err != nil {
 		return err
 	}

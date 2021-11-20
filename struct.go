@@ -161,8 +161,8 @@ func Struct(structOrStructPtr interface{}) interface{} {
 //   // Output: digpro_test.Foo{A:"a", B:1, C:2, private:true, ignore:3}
 func (c *ContainerWrapper) Struct(structOrStructPtr interface{}, opts ...dig.ProvideOption) error {
 
-	originOpts, digproProvideOption := filterAndGetDigproProvideOptions(opts, digproProvideOptionTypeEnum...)
-	opts, _ = filterAndGetDigproProvideOptions(opts, resolveCyclicProvideOptionType, locationFixOptionType)
+	originOpts, digproProvideOption := filterProvideOptionAndGetDigproOptions(opts, digproProvideOptionTypeEnum...)
+	opts, _ = filterProvideOptionAndGetDigproOptions(opts, resolveCyclicProvideOptionType, locationFixOptionType)
 	resolveCyclic := digproProvideOption.enableResolveCyclic
 	callSkip := digproProvideOption.locationFixCallSkip
 	if callSkip == 0 {

@@ -25,7 +25,7 @@ func Override() dig.ProvideOption {
 
 func overrideProvideMiddleware(pc *provideContext) error {
 
-	opts, digproOptResult := filterAndGetDigproProvideOptions(pc.opts, overrideProvideOptionType)
+	opts, digproOptResult := filterProvideOptionAndGetDigproOptions(pc.opts, overrideProvideOptionType)
 	hasOverrideOpt := digproOptResult.enableOverride
 	pc.opts = opts
 

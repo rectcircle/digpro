@@ -25,7 +25,7 @@ func Provide(constructor interface{}, opts ...dig.ProvideOption) {
 
 // Invoke see https://pkg.go.dev/go.uber.org/dig#Container.Invoke
 func Invoke(function interface{}, opts ...dig.InvokeOption) error {
-	return g.Invoke(function, opts...)
+	return g.Invoke(function, append([]dig.InvokeOption{internal.LocationFixOption{CallSkip: 3}}, opts...)...)
 }
 
 // String see https://pkg.go.dev/go.uber.org/dig#Container.String

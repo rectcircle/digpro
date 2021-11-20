@@ -156,4 +156,8 @@ func (d2 *DI2) String() string {
 	return fmt.Sprintf("DI2: {I1: {I2: ..., Value: %d}, Value: '%s'}", d2.I1.(*DI1).Value, d2.Value)
 }
 
+type D5 struct {
+	a string `optional:"true"`
+}
+
 type PrepareFunc func(c *ContainerWrapper) error

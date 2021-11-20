@@ -508,6 +508,93 @@ func TestResolveCyclic(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "ResolveCyclic Invoke with dig.In",
+			args: args{
+				prepare: func(c *ContainerWrapper) error {
+					errs := []error{
+						c.Supply(1),
+						c.Supply("a"),
+						c.Supply(true, dig.Name("b")),
+						c.Supply(false, dig.Group("g")),
+						c.Struct(new(D1), ResolveCyclic()),
+						c.Struct(new(D2)),
+					}
+					for _, err := range errs {
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			},
+			prepareWantErr: false,
+			assert: func(t *testing.T, c *ContainerWrapper) {
+				d1 := &D1{Value: 1}
+				d2 := &D2{Value: "a"}
+				d1.D2 = d2
+				d2.D1 = d1
+
+				err := c.Invoke(func(in struct {
+					dig.In
+					D1 *D1
+					D2 *D2
+					B  bool   `name:"b"`
+					G  []bool `group:"g"`
+				}) {
+					targetD1 := in.D1
+					targetD2 := in.D2
+					if d1.String() != targetD1.String() {
+						t.Errorf("Expected *D1 %s, got %s", d1.String(), targetD1.String())
+						return
+					}
+					if d2.String() != targetD2.String() {
+						t.Errorf("Expected *D2 %s, got %s", d2.String(), targetD2.String())
+						return
+					}
+					if in.B != true {
+						t.Errorf("Expected B %v, got %v", true, in.B)
+						return
+					}
+					if !(len(in.G) == 1 || in.G[0] == false) {
+						t.Errorf("Expected G %v, got %v", []bool{false}, in.G)
+						return
+					}
+				})
+				if err != nil {
+					t.Errorf("Invoke error: %v", err)
+					return
+				}
+			},
+		},
+		{
+			name: "ResolveCyclic with optional",
+			args: args{
+				prepare: func(c *ContainerWrapper) error {
+					errs := []error{
+						c.Struct(new(D5), ResolveCyclic()),
+					}
+					for _, err := range errs {
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			},
+			prepareWantErr: false,
+			assert: func(t *testing.T, c *ContainerWrapper) {
+				d5, err := c.Extract(new(D5))
+				if err != nil {
+					t.Errorf("Extract *D5 error: %v", err)
+					return
+				}
+				if d5.(*D5).a != "" {
+					t.Errorf("Expected d5.a empty, got %v", d5.(*D5).a)
+					return
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

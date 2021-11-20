@@ -31,7 +31,7 @@ var digproProvideOptionTypeEnum = []reflect.Type{
 	locationFixOptionType,
 }
 
-func filterAndGetDigproProvideOptions(opts []dig.ProvideOption, excludes ...reflect.Type) ([]dig.ProvideOption, digproProvideOptions) {
+func filterProvideOptionAndGetDigproOptions(opts []dig.ProvideOption, excludes ...reflect.Type) ([]dig.ProvideOption, digproProvideOptions) {
 	filteredOpts := make([]dig.ProvideOption, 0, len(opts))
 	result := digproProvideOptions{}
 	for _, opt := range opts {
@@ -50,6 +50,27 @@ func filterAndGetDigproProvideOptions(opts []dig.ProvideOption, excludes ...refl
 		} else if _, ok := opt.(resolveCyclicProvideOption); ok {
 			result.enableResolveCyclic = true
 		} else if lfo, ok := opt.(internal.LocationFixOption); ok {
+			result.locationFixCallSkip = lfo.CallSkip
+		}
+	}
+	return filteredOpts, result
+}
+
+func filterInvokeOptionAndGetDigproOptions(opts []dig.InvokeOption, excludes ...reflect.Type) ([]dig.InvokeOption, digproProvideOptions) {
+	filteredOpts := make([]dig.InvokeOption, 0, len(opts))
+	result := digproProvideOptions{}
+	for _, opt := range opts {
+		isExclude := false
+		for _, exclude := range excludes {
+			if reflect.TypeOf(opt) == exclude {
+				isExclude = true
+				break
+			}
+		}
+		if !isExclude {
+			filteredOpts = append(filteredOpts, opt)
+		}
+		if lfo, ok := opt.(internal.LocationFixOption); ok {
 			result.locationFixCallSkip = lfo.CallSkip
 		}
 	}

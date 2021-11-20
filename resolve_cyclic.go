@@ -101,6 +101,7 @@ func (c *ContainerWrapper) getLocationByOutput(input internal.ProvideOutput) *di
 
 	node := providersValue.MapIndex(key)
 	if !node.IsValid() {
+		// dead code
 		return nil
 	}
 	if node.Len() != 1 {
@@ -176,6 +177,7 @@ func (c *ContainerWrapper) doPropertyInject(arg reflect.Value, structField *refl
 		if propertyInject.ResolveCyclic {
 			argStruct := internal.EnsureValueExported(underlyingValue(arg))
 			if argStruct.Kind() != reflect.Struct {
+				// Dead code
 				return nil
 			}
 
