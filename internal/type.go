@@ -9,6 +9,11 @@ import (
 var DigInField = reflect.TypeOf(struct{ dig.In }{}).Field(0)
 var ErrorType = reflect.TypeOf(new(error)).Elem()
 
+const (
+	DigGroupTag = "group"
+	DigNameTag  = "name"
+)
+
 var DigProvideOptionsType reflect.Type // dig.provideOptions
 
 func initDigProvideOptionsType() reflect.Type {

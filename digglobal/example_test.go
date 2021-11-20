@@ -18,6 +18,24 @@ type Foo struct {
 	ignore  int  `digpro:"ignore"`
 }
 
+type D1 struct {
+	D2    *D2
+	Value int
+}
+
+func (d1 *D1) String() string {
+	return fmt.Sprintf("D1: {D2: {D1: ..., Value: '%s'}, Value: %d}", d1.D2.Value, d1.Value)
+}
+
+type D2 struct {
+	D1    *D1
+	Value string
+}
+
+func (d2 *D2) String() string {
+	return fmt.Sprintf("D2: {D1: {D2: ..., Value: %d}, Value: '%s'}", d2.D1.Value, d2.Value)
+}
+
 func init() {
 	// register object
 	digglobal.Supply("a")
@@ -36,6 +54,10 @@ func init() {
 
 	// register a struct
 	digglobal.Struct(Foo{ignore: 3})
+
+	// register two cyclic dependency strcuts
+	digglobal.Struct(new(D1))
+	digglobal.Struct(new(D2), digpro.ResolveCyclic())
 }
 
 func Example() {
@@ -58,11 +80,17 @@ func Example() {
 	if err != nil {
 		digpro.QuickPanic(err)
 	}
+	d1, err := digglobal.Extract(new(D1))
+	if err != nil {
+		digpro.QuickPanic(err)
+	}
 
 	fmt.Println("### foo ###")
 	fmt.Printf("%#v\n", foo)
 	fmt.Println("### int[name=\"c\"] ###")
 	fmt.Printf("%#v\n", c)
+	fmt.Println("### d1 ###")
+	fmt.Printf("%#s\n", d1)
 	fmt.Println("### type of digglobal.Unwrap() ###")
 	fmt.Println(reflect.TypeOf(digglobal.Unwrap()))
 	fmt.Println("### inspect node and value <see stderr> ###")
@@ -77,6 +105,8 @@ func Example() {
 	// digglobal_test.Foo{A:"aaa", B:1, C:2, private:true, ignore:3}
 	// ### int[name="c"] ###
 	// 2
+	// ### d1 ###
+	// D1: {D2: {D1: ..., Value: 'aaa'}, Value: 1}
 	// ### type of digglobal.Unwrap() ###
 	// *dig.Container
 	// ### inspect node and value <see stderr> ###

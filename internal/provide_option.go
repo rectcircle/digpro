@@ -13,7 +13,7 @@ type ProvideOptions struct {
 	As    []interface{}
 }
 
-func ApplyProvideOptions(opts ...dig.ProvideOption) ProvideOptions {
+func ApplyProvideOptions(opts ...dig.ProvideOption) *ProvideOptions {
 	DigProvideOptionsPtrValue := reflect.New(DigProvideOptionsType)
 	for _, opt := range opts {
 		optValue := reflect.ValueOf(opt)
@@ -26,5 +26,5 @@ func ApplyProvideOptions(opts ...dig.ProvideOption) ProvideOptions {
 		Info:  DigProvideOptionValue.FieldByName("Info").Interface().(*dig.ProvideInfo),
 		As:    DigProvideOptionValue.FieldByName("As").Interface().([]interface{}),
 	}
-	return provideOptions
+	return &provideOptions
 }

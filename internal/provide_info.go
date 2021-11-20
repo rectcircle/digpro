@@ -9,9 +9,10 @@ import (
 	"go.uber.org/dig"
 )
 
-type ProvideInfoWrapper struct {
+type ProvideInfosWrapper struct {
 	dig.ProvideInfo
 	exportedOutputs []ProvideOutput
+	exportedInputs  []ProvideInput
 }
 
 func EnsureValueExported(value reflect.Value) reflect.Value {
@@ -22,7 +23,7 @@ func EnsureValueExported(value reflect.Value) reflect.Value {
 	}
 }
 
-func (piw *ProvideInfoWrapper) ExportedOutputs() []ProvideOutput {
+func (piw *ProvideInfosWrapper) ExportedOutputs() []ProvideOutput {
 	if piw.exportedOutputs != nil {
 		return piw.exportedOutputs
 	}
@@ -36,6 +37,24 @@ func (piw *ProvideInfoWrapper) ExportedOutputs() []ProvideOutput {
 		})
 	}
 	piw.exportedOutputs = result
+	return result
+}
+
+func (piw *ProvideInfosWrapper) ExportedInputs() []ProvideInput {
+	if piw.exportedInputs != nil {
+		return piw.exportedInputs
+	}
+	result := make([]ProvideInput, 0, len(piw.Inputs))
+	for _, input := range piw.Inputs {
+		inputValue := reflect.ValueOf(input).Elem()
+		result = append(result, ProvideInput{
+			Type:     EnsureValueExported(inputValue.FieldByName("t")).Interface().(reflect.Type),
+			Optional: EnsureValueExported(inputValue.FieldByName("optional")).Interface().(bool),
+			Name:     EnsureValueExported(inputValue.FieldByName("name")).Interface().(string),
+			Group:    EnsureValueExported(inputValue.FieldByName("group")).Interface().(string),
+		})
+	}
+	piw.exportedInputs = result
 	return result
 }
 
@@ -72,4 +91,28 @@ func EqualsProvideOutputs(a []ProvideOutput, b []ProvideOutput) bool {
 		bm[o] = struct{}{}
 	}
 	return reflect.DeepEqual(am, bm)
+}
+
+type ProvideInput struct {
+	Type        reflect.Type
+	Optional    bool
+	Name, Group string
+}
+
+func (po *ProvideInput) String() string {
+	if po.Name == "" && po.Group == "" {
+		return po.Type.String()
+	} else {
+		s := []string{}
+		if po.Name != "" {
+			s = append(s, fmt.Sprintf("name=\"%s\"", po.Name))
+		}
+		if po.Group != "" {
+			s = append(s, fmt.Sprintf("group=\"%s\"", po.Group))
+		}
+		if po.Optional {
+			s = append(s, "optional")
+		}
+		return fmt.Sprintf("%s[%s]", po.Type.String(), strings.Join(s, ","))
+	}
 }

@@ -297,3 +297,73 @@ func TestContainerWrapper_provideInfos(t *testing.T) {
 		})
 	}
 }
+
+func TestContainerWrapper_Invoke(t *testing.T) {
+	type args struct {
+		function interface{}
+		opts     []dig.InvokeOption
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "function is nil",
+			args: args{
+				function: nil,
+
+				opts: []dig.InvokeOption{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "function is not function",
+			args: args{
+				function: 1,
+				opts:     []dig.InvokeOption{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "function return error",
+			args: args{
+				function: func(a string) error {
+					return errors.New("error")
+				},
+				opts: []dig.InvokeOption{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "function return not error",
+			args: args{
+				function: func(a string) string {
+					return a
+				},
+				opts: []dig.InvokeOption{},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invoke missing type error",
+			args: args{
+				function: func(a bool) {},
+				opts:     []dig.InvokeOption{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := New()
+			_ = c.Supply(1) // please handle error in production
+			_ = c.Supply("a")
+			_ = c.Struct(new(D1), ResolveCyclic()) // enable resolve cyclic dependency
+			_ = c.Struct(new(D2))
+			if err := c.Invoke(tt.args.function, tt.args.opts...); (err != nil) != tt.wantErr {
+				t.Errorf("ContainerWrapper.Provide() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

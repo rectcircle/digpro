@@ -25,7 +25,7 @@ func Provide(constructor interface{}, opts ...dig.ProvideOption) {
 
 // Invoke see https://pkg.go.dev/go.uber.org/dig#Container.Invoke
 func Invoke(function interface{}, opts ...dig.InvokeOption) error {
-	return g.Invoke(function, opts...)
+	return g.Invoke(function, append([]dig.InvokeOption{internal.LocationFixOption{CallSkip: 3}}, opts...)...)
 }
 
 // String see https://pkg.go.dev/go.uber.org/dig#Container.String
@@ -37,14 +37,14 @@ func String() string {
 //
 // Note: if has error will panic
 func Supply(value interface{}, opts ...dig.ProvideOption) {
-	panicIfError(internal.ProvideWithLocationForPC(g.Provide, 3, digpro.Supply(value), opts...))
+	panicIfError(g.Supply(value, append([]dig.ProvideOption{internal.LocationFixOption{CallSkip: 4}}, opts...)...))
 }
 
 // Struct see https://pkg.go.dev/github.com/rectcircle/digpro#ContainerWrapper.Struct
 //
 // Note: if has error will panic
 func Struct(structOrStructPtr interface{}, opts ...dig.ProvideOption) {
-	panicIfError(internal.ProvideWithLocationForPC(g.Provide, 3, digpro.Struct(structOrStructPtr), opts...))
+	panicIfError(g.Struct(structOrStructPtr, append([]dig.ProvideOption{internal.LocationFixOption{CallSkip: 4}}, opts...)...))
 }
 
 // Extract see https://pkg.go.dev/github.com/rectcircle/digpro#ContainerWrapper.Extract

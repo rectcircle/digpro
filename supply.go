@@ -57,5 +57,10 @@ func Supply(value interface{}) interface{} {
 //   fmt.Println(foo)
 //   // Output: a
 func (c *ContainerWrapper) Supply(value interface{}, opts ...dig.ProvideOption) error {
-	return internal.ProvideWithLocationForPC(c.Provide, 3, Supply(value), opts...)
+	filteredOpts, digproOptsResult := filterProvideOptionAndGetDigproOptions(opts, locationFixOptionType)
+	callSkip := digproOptsResult.locationFixCallSkip
+	if callSkip == 0 {
+		callSkip = 3
+	}
+	return internal.ProvideWithLocationForPC(c.Provide, callSkip, Supply(value), filteredOpts...)
 }

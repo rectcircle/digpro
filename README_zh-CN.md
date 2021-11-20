@@ -245,7 +245,7 @@ err := c.Invoke(func(_i int){
 })
 ```
 
-## Override
+### Override
 
 > :warning: 仅支持高级 API
 
@@ -266,6 +266,104 @@ fmt.Println(i.(int) == 1)
 ```
 
 为了提前暴露问题，如果容器里不存在相同 Provider，使用  `digpro.Override()` 将返回错误 `no provider to override was found`
+
+### 循环引用
+
+> :warning: 仅支持高级 API `Struct` 方法
+
+在某些情况下，可能会出现几个结构体之间存在循环引用的情况。在 Go 语言中表现为如下两种情况以及这两种情况的混合情况：
+
+* 指针类型：两个结构体相互包含指向对方的指针
+* 接口类型：两个结构体分别实现了两个接口，这两个结构体包含了指向对方实现接口的引用
+
+为了解决两种循环引用的场景，digpro 提供了给 `*digpro.WrapContainer.Struct` 方法，添加了一个选项 `digpro.ResolveCyclic()`。当出现循环引用时，
+只需在引用环的任意一个结构体的 `Struct` 方法调用处，添加 `digpro.ResolveCyclic()` 选项，即可自动解决循环引用的问题。
+
+Example
+
+```go
+package digpro_test
+
+import (
+	"fmt"
+
+	"github.com/rectcircle/digpro"
+	"go.uber.org/dig"
+)
+
+type D1 struct {
+	D2    *D2
+	Value int
+}
+
+func (d1 *D1) String() string {
+	return fmt.Sprintf("D1: {D2: {D1: ..., Value: '%s'}, Value: %d}", d1.D2.Value, d1.Value)
+}
+
+type D2 struct {
+	D1    *D1
+	Value string
+}
+
+func (d2 *D2) String() string {
+	return fmt.Sprintf("D2: {D1: {D2: ..., Value: %d}, Value: '%s'}", d2.D1.Value, d2.Value)
+}
+
+func resolvePointerTypeCyclicDependency() {
+	c := digpro.New()
+	_ = c.Supply(1) // please handle error in production
+	_ = c.Supply("a")
+	_ = c.Struct(new(D1), digpro.ResolveCyclic()) // enable resolve cyclic dependency
+	_ = c.Struct(new(D2))
+	d1, _ := c.Extract(new(D1))
+	d2, _ := c.Extract(new(D2))
+	fmt.Println(d1.(*D1).String())
+	fmt.Println(d2.(*D2).String())
+}
+
+type I1 interface{ String1() string }
+type I2 interface{ String2() string }
+
+type DI1 struct {
+	I2    I2
+	Value int
+}
+
+func (d1 *DI1) String1() string {
+	return fmt.Sprintf("DI1: {I2: {I1: ..., Value: '%s'}, Value: %d}", d1.I2.(*DI2).Value, d1.Value)
+}
+
+type DI2 struct {
+	I1    I1
+	Value string
+}
+
+func (d2 *DI2) String2() string {
+	return fmt.Sprintf("DI2: {I1: {I2: ..., Value: %d}, Value: '%s'}", d2.I1.(*DI1).Value, d2.Value)
+}
+
+func resolveInterfaceTypeCyclicDependency() {
+	c := digpro.New()
+	_ = c.Supply(1) // please handle error in production
+	_ = c.Supply("a")
+	_ = c.Struct(new(DI1), dig.As(new(I1)))
+	_ = c.Struct(new(DI2), dig.As(new(I2)), digpro.ResolveCyclic()) // enable resolve cyclic dependency
+	i1, _ := c.Extract(new(I1))
+	i2, _ := c.Extract(new(I2))
+	fmt.Println(i1.(I1).String1())
+	fmt.Println(i2.(I2).String2())
+}
+
+func ExampleResolveCyclic() {
+	resolvePointerTypeCyclicDependency()
+	resolveInterfaceTypeCyclicDependency()
+	// Output:
+	// D1: {D2: {D1: ..., Value: 'a'}, Value: 1}
+	// D2: {D1: {D2: ..., Value: 1}, Value: 'a'}
+	// DI1: {I2: {I1: ..., Value: 'a'}, Value: 1}
+	// DI2: {I1: {I2: ..., Value: 1}, Value: 'a'}
+}
+```
 
 ### 其他
 
@@ -303,10 +401,6 @@ func (c *ContainerWrapper) Unwrap() *dig.Container
 ```
 
 从 `*digpro.ContainerWrapper` 中获取 `*dig.Container`
-
-## TODO
-
-* [ ] 循环引用问题（修改高级API中 `Struct` 、 `Invoke` 和 `Extract` 实现为 `() => new(struct)`，并在提取的时候进行拼装（不考虑非指针的情况）
 
 [dig-github]: https://github.com/uber-go/dig
 [dig-go-docs]: https://pkg.go.dev/go.uber.org/dig#example-package-Minimal

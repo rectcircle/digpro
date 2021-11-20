@@ -85,7 +85,7 @@ func Test_makeParameterObjectType_copyFromParameterObject(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			parameterObjectType, fieldMapping, err := makeParameterObjectType(tt.args.structOrStructPtr)
+			parameterObjectType, fieldMapping, err := makeParameterObjectType(tt.args.structOrStructPtr, false)
 			if (err != nil) != tt.wantErr {
 				// not want err, but got error , return
 				if !tt.wantErr {

@@ -1,6 +1,7 @@
 package digpro
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -92,3 +93,71 @@ func assertStructOrStructPtr(t *testing.T, structOrStructPtr interface{}) (pass 
 	}
 	return pass
 }
+
+type D1 struct {
+	D2    *D2
+	Value int
+}
+
+func (d1 *D1) String() string {
+	return fmt.Sprintf("D1: {D2: {D1: ..., Value: '%s'}, Value: %d}", d1.D2.Value, d1.Value)
+}
+
+type D2 struct {
+	D1    *D1
+	Value string
+}
+
+func (d2 *D2) String() string {
+	return fmt.Sprintf("D2: {D1: {D2: ..., Value: %d}, Value: '%s'}", d2.D1.Value, d2.Value)
+}
+
+type D3 struct {
+	D2    *D2
+	Value bool
+}
+
+func (d3 D3) String() string {
+	return fmt.Sprintf("D3 {%s, Value: %t}", d3.D2.String(), d3.Value)
+}
+
+type D4 struct {
+	D2     *D2     `optional:"true"`
+	Value  float64 `optional:"true"`
+	Ignore int     `digpro:"ignore"`
+}
+
+func (d4 *D4) String() string {
+	d2String := "null"
+	if d4.D2 != nil {
+		d2String = d4.D2.String()
+	}
+	return fmt.Sprintf("D4 {%s, Value: %f, Ignore: %d}", d2String, d4.Value, d4.Ignore)
+}
+
+type I1 interface{ String() string }
+type I2 interface{ String() string }
+
+type DI1 struct {
+	I2    I2
+	Value int
+}
+
+func (d1 *DI1) String() string {
+	return fmt.Sprintf("DI1: {I2: {I1: ..., Value: '%s'}, Value: %d}", d1.I2.(*DI2).Value, d1.Value)
+}
+
+type DI2 struct {
+	I1    I1
+	Value string
+}
+
+func (d2 *DI2) String() string {
+	return fmt.Sprintf("DI2: {I1: {I2: ..., Value: %d}, Value: '%s'}", d2.I1.(*DI1).Value, d2.Value)
+}
+
+type D5 struct {
+	a string `optional:"true"`
+}
+
+type PrepareFunc func(c *ContainerWrapper) error

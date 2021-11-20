@@ -61,7 +61,7 @@ func structPtrValueOf(structOrStructPtr interface{}) (isPtr bool, structPtrValue
 	return
 }
 
-func makeParameterObjectType(structOrStructPtr interface{}) (reflect.Type, map[string]int, error) {
+func makeParameterObjectType(structOrStructPtr interface{}, resolveCyclic bool) (reflect.Type, map[string]int, error) {
 	_, structTyp, err := structTypeOf(structOrStructPtr)
 	if err != nil {
 		return nil, nil, err
@@ -73,18 +73,20 @@ func makeParameterObjectType(structOrStructPtr interface{}) (reflect.Type, map[s
 	// map[parameterObjectFieldName]valueFieldIndex
 	fieldMapping := map[string]int{}
 
-	for i := 0; i < structTyp.NumField(); i++ {
-		originField := structTyp.Field(i)
-		f := ensureStructFieldExported(originField)
-		if f.Tag.Get("digpro") == "ignore" {
-			continue
+	if !resolveCyclic {
+		for i := 0; i < structTyp.NumField(); i++ {
+			originField := structTyp.Field(i)
+			f := ensureStructFieldExported(originField)
+			if f.Tag.Get("digpro") == "ignore" {
+				continue
+			}
+			if existIdx, ok := fieldMapping[f.Name]; ok {
+				existField := structTyp.Field(existIdx)
+				return nil, nil, fmt.Errorf("field conflict, %s:%s and %s:%s", originField.Name, originField.Type, existField.Name, existField.Type)
+			}
+			parameterObjectFields = append(parameterObjectFields, f)
+			fieldMapping[f.Name] = i
 		}
-		if existIdx, ok := fieldMapping[f.Name]; ok {
-			existField := structTyp.Field(existIdx)
-			return nil, nil, fmt.Errorf("field conflict, %s:%s and %s:%s", originField.Name, originField.Type, existField.Name, existField.Type)
-		}
-		parameterObjectFields = append(parameterObjectFields, f)
-		fieldMapping[f.Name] = i
 	}
 	return reflect.StructOf(parameterObjectFields), fieldMapping, nil
 }
@@ -113,3 +115,19 @@ func copyFromParameterObject(structOrStructPtr interface{}, parameterObjectValue
 	}
 	return addressableStructValue.Interface(), nil
 }
+
+func underlyingValue(value reflect.Value) reflect.Value {
+	if k := value.Kind(); k != reflect.Ptr && k != reflect.Interface {
+		return value
+	}
+	return underlyingValue(value.Elem())
+}
+
+// func isReferenceType(t reflect.Type) bool {
+// 	switch t.Kind() {
+// 	case reflect.Ptr | reflect.Interface:
+// 		return true
+// 	default:
+// 		return false
+// 	}
+// }

@@ -9,10 +9,6 @@ import (
 	"go.uber.org/dig"
 )
 
-type overrideProvideOption struct {
-	dig.ProvideOption
-}
-
 // Override a registered provider and only support digpro high level api (support *digpro.ContainerWrapper and digglobal).
 // if Container not exist provider, the option will return error: no provider to override was found.
 // for example
@@ -28,20 +24,14 @@ func Override() dig.ProvideOption {
 }
 
 func overrideProvideMiddleware(pc *provideContext) error {
-	hasOverrideOpt := false
-	opts := make([]dig.ProvideOption, 0, len(pc.opts))
-	for _, opt := range pc.opts {
-		if _, ok := opt.(overrideProvideOption); ok {
-			hasOverrideOpt = true
-		} else {
-			opts = append(opts, opt)
-		}
-	}
+
+	opts, digproOptResult := filterProvideOptionAndGetDigproOptions(pc.opts, overrideProvideOptionType)
+	hasOverrideOpt := digproOptResult.enableOverride
 	pc.opts = opts
 
 	// get ProviderInfo
 	c := dig.New()
-	info := internal.ProvideInfoWrapper{}
+	info := internal.ProvideInfosWrapper{}
 	err := c.Provide(pc.constructor, append([]dig.ProvideOption{dig.FillProvideInfo(&info.ProvideInfo)}, pc.opts...)...)
 	if err != nil {
 		return pc.next()
@@ -90,8 +80,7 @@ func removeOldConflictProvideOutputs(c *ContainerWrapper, outputs []internal.Pro
 	containerValue := reflect.ValueOf(&c.Container).Elem()
 
 	providersValue := internal.EnsureValueExported(containerValue.FieldByName("providers")) // map[dig.key][]*dig.node
-	// providersValuePtr := providersValue.Addr()                                              // *map[dig.key][]*dig.node
-	nodesValue := internal.EnsureValueExported(containerValue.FieldByName("nodes")) // []*node
+	nodesValue := internal.EnsureValueExported(containerValue.FieldByName("nodes"))         // []*node
 
 	// create all keys
 	keyType := providersValue.Type().Key()
@@ -107,7 +96,7 @@ func removeOldConflictProvideOutputs(c *ContainerWrapper, outputs []internal.Pro
 	keyNodes := []reflect.Value{} // []*dig.node
 	for i, key := range keys {
 		node := providersValue.MapIndex(key)
-		if node.IsZero() {
+		if !node.IsValid() {
 			// dead code
 			err = fmt.Errorf("no provider to override was found: [%d].%s", i, outputs[i])
 			return

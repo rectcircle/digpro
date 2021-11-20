@@ -14,6 +14,31 @@ func TryFixDigErr(err error, pc uintptr) error {
 	if pc == 0 {
 		return err
 	}
+	return TryFixDigErrByFunc(err, digcopy.InspectFuncPC(pc))
+}
+
+func IsDigErrMissingDependencies(err error) bool {
+	if err == nil {
+		return false
+	}
+	return reflect.TypeOf(err).String() == "dig.errMissingDependencies"
+}
+
+func TryFixDigErrByFunc(err error, location *digcopy.Func) error {
+
+	if err == nil {
+		return nil
+	}
+	if location == nil {
+		return err
+	}
+
+	if _, ok := err.(digcopy.ErrParamSingleFailed); ok {
+		err = digcopy.ErrArgumentsFailed{
+			Func:   location,
+			Reason: err,
+		}
+	}
 
 	errType := reflect.TypeOf(err)
 
@@ -25,14 +50,24 @@ func TryFixDigErr(err error, pc uintptr) error {
 			return err
 		}
 		errFuncValue := errFuncValuePtr.Elem()
-		funcInfo := digcopy.InspectFuncPC(pc)
-		errFuncValue.FieldByName("Name").SetString(funcInfo.Name)
-		errFuncValue.FieldByName("Package").SetString(funcInfo.Package)
-		errFuncValue.FieldByName("File").SetString(funcInfo.File)
-		errFuncValue.FieldByName("Line").SetInt(int64(funcInfo.Line))
+
+		errFuncValue.FieldByName("Name").SetString(location.Name)
+		errFuncValue.FieldByName("Package").SetString(location.Package)
+		errFuncValue.FieldByName("File").SetString(location.File)
+		errFuncValue.FieldByName("Line").SetInt(int64(location.Line))
 		return err
 	default:
 		return err
+	}
+}
+
+func WrapResolveCyclicError(err error, location *digcopy.Func, output *ProvideOutput) error {
+	if err == nil {
+		return nil
+	}
+	return digcopy.ErrParamSingleFailed{
+		Key:    digcopy.Key{T: output.Type, Name: output.Name, Group: output.Group},
+		Reason: TryFixDigErrByFunc(err, location),
 	}
 }
 

@@ -247,7 +247,7 @@ func TestProvideInfoWrapper_ExportedOutputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			piw := ProvideInfoWrapper{}
+			piw := ProvideInfosWrapper{}
 			c := dig.New()
 			err := c.Provide(tt.arg.constructor, append(tt.arg.opts, dig.FillProvideInfo(&piw.ProvideInfo))...)
 			if err != nil {

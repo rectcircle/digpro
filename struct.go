@@ -1,6 +1,7 @@
 package digpro
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -13,6 +14,35 @@ func wrapError(prefix string, err error) error {
 		return nil
 	}
 	return fmt.Errorf("[%s] %s", prefix, err.Error())
+}
+
+func _struct(structOrStructPtr interface{}, resolveCyclic bool) interface{} {
+	parameterObjectType, fieldMapping, err := makeParameterObjectType(structOrStructPtr, resolveCyclic)
+	if err != nil {
+		return wrapError("Struct", err)
+	}
+
+	parameterTypes := []reflect.Type{parameterObjectType}
+	structOrStructPtrType := reflect.TypeOf(structOrStructPtr)
+	returnTypes := []reflect.Type{structOrStructPtrType, internal.ErrorType}
+
+	ft := reflect.FuncOf(parameterTypes, returnTypes, false)
+	fv := reflect.MakeFunc(ft, func(p []reflect.Value) []reflect.Value {
+		// copy from parameter to injectedObject and return
+		injectedObject, err := copyFromParameterObject(structOrStructPtr, p[0], fieldMapping)
+		errValue := reflect.ValueOf(wrapError("Struct", err))
+		var injectedObjectValue reflect.Value
+		if err == nil {
+			// handle result to value
+			injectedObjectValue = reflect.ValueOf(injectedObject)
+			errValue = reflect.New(internal.ErrorType).Elem()
+		} else {
+			injectedObjectValue = reflect.New(structOrStructPtrType).Elem()
+		}
+
+		return []reflect.Value{injectedObjectValue, errValue}
+	})
+	return fv.Interface()
 }
 
 // Struct make a struct constructor.
@@ -71,32 +101,7 @@ func wrapError(prefix string, err error) error {
 //   fmt.Printf("%#v", foo)
 //   // Output: digpro_test.Foo{A:"a", B:1, C:2, private:true, ignore:3}
 func Struct(structOrStructPtr interface{}) interface{} {
-	parameterObjectType, fieldMapping, err := makeParameterObjectType(structOrStructPtr)
-	if err != nil {
-		return wrapError("Struct", err)
-	}
-
-	parameterTypes := []reflect.Type{parameterObjectType}
-	structOrStructPtrType := reflect.TypeOf(structOrStructPtr)
-	returnTypes := []reflect.Type{structOrStructPtrType, internal.ErrorType}
-
-	ft := reflect.FuncOf(parameterTypes, returnTypes, false)
-	fv := reflect.MakeFunc(ft, func(p []reflect.Value) []reflect.Value {
-		// copy from parameter to injectedObject and return
-		injectedObject, err := copyFromParameterObject(structOrStructPtr, p[0], fieldMapping)
-		errValue := reflect.ValueOf(wrapError("Struct", err))
-		var injectedObjectValue reflect.Value
-		if err == nil {
-			// handle result to value
-			injectedObjectValue = reflect.ValueOf(injectedObject)
-			errValue = reflect.New(internal.ErrorType).Elem()
-		} else {
-			injectedObjectValue = reflect.New(structOrStructPtrType).Elem()
-		}
-
-		return []reflect.Value{injectedObjectValue, errValue}
-	})
-	return fv.Interface()
+	return _struct(structOrStructPtr, false)
 }
 
 // Struct make a struct constructor.
@@ -155,5 +160,42 @@ func Struct(structOrStructPtr interface{}) interface{} {
 //   fmt.Printf("%#v", foo)
 //   // Output: digpro_test.Foo{A:"a", B:1, C:2, private:true, ignore:3}
 func (c *ContainerWrapper) Struct(structOrStructPtr interface{}, opts ...dig.ProvideOption) error {
-	return internal.ProvideWithLocationForPC(c.Provide, 3, Struct(structOrStructPtr), opts...)
+
+	originOpts, digproProvideOption := filterProvideOptionAndGetDigproOptions(opts, digproProvideOptionTypeEnum...)
+	opts, _ = filterProvideOptionAndGetDigproOptions(opts, resolveCyclicProvideOptionType, locationFixOptionType)
+	resolveCyclic := digproProvideOption.enableResolveCyclic
+	callSkip := digproProvideOption.locationFixCallSkip
+	if callSkip == 0 {
+		callSkip = 3
+	}
+
+	// check structOrStructPtr must be ptr
+	if resolveCyclic && reflect.TypeOf(structOrStructPtr).Kind() != reflect.Ptr {
+		return errors.New("structOrStructPtr should be ptr, when use digpro.ResolveCyclic option")
+	}
+
+	// check err and get provideInfo
+	tmpC := New()
+	err := internal.ProvideWithLocationForPC(tmpC.Provide, callSkip, _struct(structOrStructPtr, false), originOpts...)
+	if err != nil {
+		return err
+	}
+	provideInfo := tmpC.provideInfos[0]
+
+	if resolveCyclic {
+		opts = append(opts, resolveCyclicOriginProvideInfoProvideOption{provideInfo: &provideInfo})
+	}
+
+	// do call provide
+	provide := _struct(structOrStructPtr, resolveCyclic)
+	err = internal.ProvideWithLocationForPC(c.Provide, callSkip, provide, opts...)
+	if err != nil {
+		return err
+	}
+	// record has ResolveCyclic option
+	if resolveCyclic {
+		c.existResolveCyclicOption = true
+	}
+
+	return nil
 }

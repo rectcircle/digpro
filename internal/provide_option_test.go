@@ -8,6 +8,7 @@ import (
 )
 
 func TestApplyProvideOptions(t *testing.T) {
+	i := new(interface{})
 	info := dig.ProvideInfo{}
 	type args struct {
 		opts []dig.ProvideOption
@@ -15,29 +16,29 @@ func TestApplyProvideOptions(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want ProvideOptions
+		want *ProvideOptions
 	}{
 		{
 			name: "type",
 			args: args{
 				opts: []dig.ProvideOption{
 					dig.Name("a"), dig.Name("aa"),
-					dig.As(new(interface{})), dig.As(new(interface{})),
+					dig.As(i), dig.As(i),
 					dig.Group("b"), dig.Group("bb"),
 					dig.FillProvideInfo(&info)},
 			},
-			want: ProvideOptions{
+			want: &ProvideOptions{
 				Name:  "aa",
 				Group: "bb",
 				Info:  &info,
-				As:    []interface{}{new(interface{}), new(interface{})},
+				As:    []interface{}{i, i},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ApplyProvideOptions(tt.args.opts...); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ApplyProvideOptions() = %v, want %v", got, tt.want)
+				t.Errorf("ApplyProvideOptions() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
