@@ -24,15 +24,9 @@ func Override() dig.ProvideOption {
 }
 
 func overrideProvideMiddleware(pc *provideContext) error {
-	hasOverrideOpt := false
-	opts := make([]dig.ProvideOption, 0, len(pc.opts))
-	for _, opt := range pc.opts {
-		if _, ok := opt.(overrideProvideOption); ok {
-			hasOverrideOpt = true
-		} else {
-			opts = append(opts, opt)
-		}
-	}
+
+	opts, digproOptResult := filterAndGetDigproProvideOptions(pc.opts, overrideProvideOptionType)
+	hasOverrideOpt := digproOptResult.enableOverride
 	pc.opts = opts
 
 	// get ProviderInfo

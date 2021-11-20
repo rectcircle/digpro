@@ -8,8 +8,41 @@ import (
 	"go.uber.org/dig"
 )
 
-// ResolveCyclic
-// TODO add doc
+// ResolveCyclic to resolve *digpro.ContainerWrapper.Struct cyclic dependency.
+// The option only support *digpro.ContainerWrapper.Struct and *digglobal.Struct functions.
+//
+// for example
+//   type D1 struct {
+//   	D2    *D2
+//   	Value int
+//   }
+//
+//   func (d1 *D1) String() string {
+//   	return fmt.Sprintf("D1: {D2: {D1: ..., Value: '%s'}, Value: %d}", d1.D2.Value, d1.Value)
+//   }
+//
+//   type D2 struct {
+//   	D1    *D1
+//   	Value string
+//   }
+//
+//   func (d2 *D2) String() string {
+//   	return fmt.Sprintf("D2: {D1: {D2: ..., Value: %d}, Value: '%s'}", d2.D1.Value, d2.Value)
+//   }
+//
+//   c := digpro.New()
+//   _ = c.Supply(1) // please handle error in production
+//   _ = c.Supply("a")
+//   _ = c.Struct(new(D1), digpro.ResolveCyclic()) // enable resolve cyclic dependency
+//   _ = c.Struct(new(D2))
+//   d1, _ := c.Extract(new(D1))
+//   d2, _ := c.Extract(new(D2))
+//   fmt.Println(d1.(*D1).String())
+//   fmt.Println(d2.(*D2).String())
+//   // Output:
+//   // D1: {D2: {D1: ..., Value: 'a'}, Value: 1}
+//   // D2: {D1: {D2: ..., Value: 1}, Value: 'a'}
+//   // Output: true
 func ResolveCyclic() dig.ProvideOption {
 	return resolveCyclicProvideOption{}
 }

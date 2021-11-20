@@ -161,20 +161,13 @@ func Struct(structOrStructPtr interface{}) interface{} {
 //   // Output: digpro_test.Foo{A:"a", B:1, C:2, private:true, ignore:3}
 func (c *ContainerWrapper) Struct(structOrStructPtr interface{}, opts ...dig.ProvideOption) error {
 
-	resolveCyclic := false
-	_opts := make([]dig.ProvideOption, 0, len(opts))
-	originOpts := make([]dig.ProvideOption, 0, len(opts))
-	for _, opt := range opts {
-		if _, ok := opt.(resolveCyclicProvideOption); ok {
-			resolveCyclic = true
-		} else {
-			_opts = append(_opts, opt)
-		}
-		if isOriginProvideOption(opt) {
-			originOpts = append(originOpts, opt)
-		}
+	originOpts, digproProvideOption := filterAndGetDigproProvideOptions(opts, digproProvideOptionTypeEnum...)
+	opts, _ = filterAndGetDigproProvideOptions(opts, resolveCyclicProvideOptionType, locationFixOptionType)
+	resolveCyclic := digproProvideOption.enableResolveCyclic
+	callSkip := digproProvideOption.locationFixCallSkip
+	if callSkip == 0 {
+		callSkip = 3
 	}
-	opts = _opts
 
 	// check structOrStructPtr must be ptr
 	if resolveCyclic && reflect.TypeOf(structOrStructPtr).Kind() != reflect.Ptr {
@@ -183,7 +176,7 @@ func (c *ContainerWrapper) Struct(structOrStructPtr interface{}, opts ...dig.Pro
 
 	// check err and get provideInfo
 	tmpC := New()
-	err := internal.ProvideWithLocationForPC(tmpC.Provide, 3, _struct(structOrStructPtr, false), originOpts...)
+	err := internal.ProvideWithLocationForPC(tmpC.Provide, callSkip, _struct(structOrStructPtr, false), originOpts...)
 	if err != nil {
 		return err
 	}
@@ -195,7 +188,7 @@ func (c *ContainerWrapper) Struct(structOrStructPtr interface{}, opts ...dig.Pro
 
 	// do call provide
 	provide := _struct(structOrStructPtr, resolveCyclic)
-	err = internal.ProvideWithLocationForPC(c.Provide, 3, provide, opts...)
+	err = internal.ProvideWithLocationForPC(c.Provide, callSkip, provide, opts...)
 	if err != nil {
 		return err
 	}

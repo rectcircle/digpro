@@ -249,7 +249,7 @@ err := c.Invoke(func(_i int){
 })
 ```
 
-## Override
+### Override
 
 > :warning: Only support High Level API
 
@@ -270,6 +270,104 @@ fmt.Println(i.(int) == 1)
 ```
 
 To expose the problem in advance, using `digpro.Override()` will return the error `no provider to override was found` if the same Provider does not exist in the container
+
+### Circular reference
+
+> :warning: Only support High Level API `Struct` method
+
+In some cases, there may be circular references between several structs. This is manifested in the Go language in the following two cases and in a mixture of these two cases.
+
+* Pointer type: two structures contain pointers to each other
+* Interface type: two structures implement two interfaces, and these two structures contain references to each other's implemented interfaces
+
+To address the two circular reference scenarios, digpro offers to add an option `digpro.ResolveCyclic()` to the `*digpro.WrapContainer.Struct` method. When a circular reference occurs, the
+Simply add the `digpro.ResolveCyclic()` option to the `Struct` method call of any structure that reference cycle, and the circular reference will be automatically resolved.
+
+Example
+
+```go
+package digpro_test
+
+import (
+	"fmt"
+
+	"github.com/rectcircle/digpro"
+	"go.uber.org/dig"
+)
+
+type D1 struct {
+	D2    *D2
+	Value int
+}
+
+func (d1 *D1) String() string {
+	return fmt.Sprintf("D1: {D2: {D1: ..., Value: '%s'}, Value: %d}", d1.D2.Value, d1.Value)
+}
+
+type D2 struct {
+	D1    *D1
+	Value string
+}
+
+func (d2 *D2) String() string {
+	return fmt.Sprintf("D2: {D1: {D2: ..., Value: %d}, Value: '%s'}", d2.D1.Value, d2.Value)
+}
+
+func resolvePointerTypeCyclicDependency() {
+	c := digpro.New()
+	_ = c.Supply(1) // please handle error in production
+	_ = c.Supply("a")
+	_ = c.Struct(new(D1), digpro.ResolveCyclic()) // enable resolve cyclic dependency
+	_ = c.Struct(new(D2))
+	d1, _ := c.Extract(new(D1))
+	d2, _ := c.Extract(new(D2))
+	fmt.Println(d1.(*D1).String())
+	fmt.Println(d2.(*D2).String())
+}
+
+type I1 interface{ String1() string }
+type I2 interface{ String2() string }
+
+type DI1 struct {
+	I2    I2
+	Value int
+}
+
+func (d1 *DI1) String1() string {
+	return fmt.Sprintf("DI1: {I2: {I1: ..., Value: '%s'}, Value: %d}", d1.I2.(*DI2).Value, d1.Value)
+}
+
+type DI2 struct {
+	I1    I1
+	Value string
+}
+
+func (d2 *DI2) String2() string {
+	return fmt.Sprintf("DI2: {I1: {I2: ..., Value: %d}, Value: '%s'}", d2.I1.(*DI1).Value, d2.Value)
+}
+
+func resolveInterfaceTypeCyclicDependency() {
+	c := digpro.New()
+	_ = c.Supply(1) // please handle error in production
+	_ = c.Supply("a")
+	_ = c.Struct(new(DI1), dig.As(new(I1)))
+	_ = c.Struct(new(DI2), dig.As(new(I2)), digpro.ResolveCyclic()) // enable resolve cyclic dependency
+	i1, _ := c.Extract(new(I1))
+	i2, _ := c.Extract(new(I2))
+	fmt.Println(i1.(I1).String1())
+	fmt.Println(i2.(I2).String2())
+}
+
+func ExampleResolveCyclic() {
+	resolvePointerTypeCyclicDependency()
+	resolveInterfaceTypeCyclicDependency()
+	// Output:
+	// D1: {D2: {D1: ..., Value: 'a'}, Value: 1}
+	// D2: {D1: {D2: ..., Value: 1}, Value: 'a'}
+	// DI1: {I2: {I1: ..., Value: 'a'}, Value: 1}
+	// DI2: {I1: {I2: ..., Value: 1}, Value: 'a'}
+}
+```
 
 ### Others
 
@@ -307,10 +405,6 @@ func (c *ContainerWrapper) Unwrap() *dig.Container
 ```
 
 From `*digpro.ContainerWrapper` obtain `*dig.Container`
-
-## TODO
-
-* [ ] Circular reference problem (change high level api `Struct` 、 `Invoke` and `Extract` Implementation as  `() => new(struct)`, and assembled at the time of extraction)(disregarding the non-pointer case)
 
 [dig-github]: https://github.com/uber-go/dig
 [dig-go-docs]: https://pkg.go.dev/go.uber.org/dig

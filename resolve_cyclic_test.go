@@ -508,9 +508,6 @@ func TestResolveCyclic(t *testing.T) {
 				}
 			},
 		},
-		// TODO 添加 Example
-		// TODO 添加 docs
-		// TODO 添加文档
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
