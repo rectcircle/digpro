@@ -18,6 +18,7 @@ digpro is a enhanced [uber-go/dig][dig-github], inherit all feature of [uber-go/
   * `QuickPanic` function
   * `Visualize` function
   * `Unwrap` function
+* Circular reference
 
 ## Installation
 
@@ -405,6 +406,59 @@ func (c *ContainerWrapper) Unwrap() *dig.Container
 ```
 
 From `*digpro.ContainerWrapper` obtain `*dig.Container`
+
+## Best Practices
+
+### Configuration files and configuration items
+
+> [Playground](https://play.studygolang.com/p/ZsShZgajrgH)
+
+Suppose a project needs to be read from the configuration file configuration into a structure. Many components depend on a few attributes of the configuration structure. The method of using digpro is as follows:
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/rectcircle/digpro"
+	"go.uber.org/dig"
+)
+
+type Config struct {
+	dig.Out // it important
+	DB      struct {
+	        dig.Out        // it important
+	        DSN     string `name:"config.db.dsn"` // must decalre name
+	}
+}
+
+type DB struct {
+	DB_DSN string `name:"config.db.dsn"` // this name must be same as config.db.dsn of Config struct
+}
+
+
+func main() {
+	c := digpro.New()
+	digpro.QuickPanic(
+		c.Provide(func() Config {
+			// ... read config from file
+			return Config{
+				DB: struct {
+					dig.Out
+					DSN string `name:"config.db.dsn"`
+				}{
+					DSN: "this is db dsn",
+				},
+			}
+		}),
+		c.Struct(new(DB)),
+		c.Invoke(func(db *DB) {
+			fmt.Println(db.DB_DSN)
+		}),
+	)
+	// Output: this is db dsn
+}
+```
 
 [dig-github]: https://github.com/uber-go/dig
 [dig-go-docs]: https://pkg.go.dev/go.uber.org/dig
